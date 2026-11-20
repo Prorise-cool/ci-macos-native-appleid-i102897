@@ -1,0 +1,36 @@
+name: macos-native-appleaccount-probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: env probe
+        run: |
+          sw_vers; uname -m; sysctl -n hw.model || true
+          swiftc --version 2>/dev/null | head -2 || true
+          id; launchctl managername || true
+      - name: build helpers (Vision OCR + AX/CGEvent)
+        run: |
+          swiftc -O ocr2.swift -o ocr2 && ls -l ocr2
+          swiftc -O cgui.swift -o cgui && ls -l cgui
+      - name: native apple account surface probe
+        env:
+          OUT: ${{ github.workspace }}/out_native
+        run: |
+          bash probe_native.sh || echo "PROBE_EXIT=$?"
+      - name: summary tail
+        if: always()
+        run: |
+          tail -120 "${{ github.workspace }}/out_native/probe.log" 2>/dev/null || true
+      - name: upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-appleaccount-evidence
+          path: out_native
+          if-no-files-found: warn
